@@ -225,7 +225,6 @@ async function run() {
 
         const paymentResult = await paymentCollection.insertOne(payment);
 
-       
         const query = {
           _id: {
             $in: payment.cartId.map((id) => new ObjectId(id)),
@@ -249,6 +248,79 @@ async function run() {
           error: error.message,
         });
       }
+    });
+
+    app.get("/payments/:email", verifyToken, async (req, res) => {
+      const query = { email: req.params.email };
+      if (req.params.email !== req.decoded.email) {
+        return res.status(403).send({ message: "Forbidden Access" });
+      }
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
+      const users = await UserCollection.estimatedDocumentCount();
+      const orders = await cartCollection.estimatedDocumentCount();
+      const result = await paymentCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: {
+                $sum: "$price",
+              },
+            },
+          },
+        ])
+        .toArray();
+
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+      res.send({ users, orders, revenue });
+    });
+    const { ObjectId } = require("mongodb");
+
+    app.get("/order-stats", verifyToken, verifyAdmin, async (req, res) => {
+      const result = await paymentCollection
+        .aggregate([
+          {
+            $unwind: "$MenuId",
+          },
+          {
+            $addFields: {
+              MenuIdObject: { $toObjectId: "$MenuId" },
+            },
+          },
+          {
+            $lookup: {
+              from: "menu",
+              localField: "MenuIdObject",
+              foreignField: "_id",
+              as: "menuItems",
+            },
+          },
+          {
+            $unwind: "$menuItems",
+          },
+          {
+            $group: {
+              _id: "$menuItems.category",
+              quantity: { $sum: 1 },
+              revenue: { $sum: "$menuItems.price" },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              category: "$_id",
+              quantity: "$quantity",
+              revenue: "$revenue",
+            },
+          },
+        ])
+        .toArray();
+
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
