@@ -3,6 +3,7 @@ require("dotenv").config();
 
 const express = require("express");
 const WebSocket = require("ws");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const cors = require("cors");
@@ -29,6 +30,7 @@ async function run() {
     const UserCollection = client.db("tableTalk").collection("users");
     const menuCollection = client.db("tableTalk").collection("menu");
     const cartCollection = client.db("tableTalk").collection("carts");
+    const paymentCollection = client.db("tableTalk").collection("payments");
     // jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -200,6 +202,53 @@ async function run() {
       const query = { email: email };
       const result = await cartCollection.find(query).toArray();
       res.send(result);
+    });
+
+    // Payment Related Api
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      console.log(amount, "Amount insi de the client intent");
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    app.post("/payments", async (req, res) => {
+      try {
+        const payment = req.body;
+
+        const paymentResult = await paymentCollection.insertOne(payment);
+
+       
+        const query = {
+          _id: {
+            $in: payment.cartId.map((id) => new ObjectId(id)),
+          },
+        };
+
+        // Delete the cart items
+        const deleteResult = await cartCollection.deleteMany(query);
+
+        // Send both results as a single response object
+        res.send({
+          paymentResult,
+          deleteResult,
+          status: "success",
+        });
+      } catch (error) {
+        console.error("Error processing payment:", error);
+        res.status(500).send({
+          status: "error",
+          message: "Failed to process payment",
+          error: error.message,
+        });
+      }
     });
 
     await client.db("admin").command({ ping: 1 });
