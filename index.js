@@ -31,6 +31,7 @@ async function run() {
     const menuCollection = client.db("tableTalk").collection("menu");
     const cartCollection = client.db("tableTalk").collection("carts");
     const paymentCollection = client.db("tableTalk").collection("payments");
+    const bookTableCollection = client.db("tableTalk").collection("bookTable");
     // jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -204,6 +205,19 @@ async function run() {
       res.send(result);
     });
 
+    // Booking Table related Apis
+
+    app.post("/bookTable", async (req, res) => {
+      const bookTable = req.body;
+      const result = await bookTableCollection.insertOne(bookTable);
+      res.send(result);
+    });
+    app.get("/bookTable/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await bookTableCollection.find(query).toArray();
+      res.send(result);
+    });
     // Payment Related Api
     app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
