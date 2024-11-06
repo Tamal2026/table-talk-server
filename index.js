@@ -4,6 +4,8 @@ require("dotenv").config();
 const express = require("express");
 const WebSocket = require("ws");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
 
 const app = express();
 const cors = require("cors");
@@ -32,8 +34,9 @@ async function run() {
     const cartCollection = client.db("tableTalk").collection("carts");
     const paymentCollection = client.db("tableTalk").collection("payments");
     const bookTableCollection = client.db("tableTalk").collection("bookTable");
+    const reviewsCollection = client.db("tableTalk").collection("reviews");
     // jwt related api
-    app.post("/jwt", async (req, res) => {
+    app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
         expiresIn: "1h",
@@ -92,25 +95,33 @@ async function run() {
       const result = await menuCollection.findOne(query);
       res.send(result);
     });
-    app.patch("/menu/:id", async (req, res) => {
-      const item = req.body;
+    app.patch("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
+
+      const { name, category, price, short_desc, description } = req.body;
+
+      const img = req.file ? req.file.path : null;
+
       const updatedDoc = {
         $set: {
-          name: item.name,
-          category: item.category,
-          price: item.price,
-          img: item.img,
-          short_desc: item.short_desc,
-          description: item.description,
+          name,
+          category,
+          price,
+          short_desc,
+          description,
         },
       };
-      const result = await menuCollection.updateOne(filter, updatedDoc);
-      res.send(result);
+
+      try {
+        const result = await menuCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to update item" });
+      }
     });
     // Users related APIs
-    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/users", async (req, res) => {
       const result = await UserCollection.find().toArray();
       res.send(result);
     });
@@ -129,8 +140,8 @@ async function run() {
       res.send({ admin });
     });
 
-    app.patch("/users/:id", async (req, res) => {
-      const id = req.params.id; // Extracting the ID correctly
+    app.patch("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
 
       // Validate the ID
       if (!ObjectId.isValid(id)) {
@@ -162,7 +173,6 @@ async function run() {
     app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
 
-      // Validate the ID
       if (!ObjectId.isValid(id)) {
         return res.status(400).send({ error: "Invalid user ID format" });
       }
@@ -197,6 +207,13 @@ async function run() {
       const result = await cartCollection.insertOne(cartItem);
       res.send(result);
     });
+    // Delete cart item by ID
+    app.delete("/carts/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartCollection.deleteOne(query);
+      res.send(result);
+    });
 
     app.get("/carts", async (req, res) => {
       const email = req.query.email;
@@ -207,6 +224,12 @@ async function run() {
 
     // Booking Table related Apis
 
+    app.get("/bookTable", async (req, res) => {
+      const result = await bookTableCollection.find().toArray();
+      res.send(result);
+    });
+    app.delete("/bookTable/:id", async (req, res) => {});
+
     app.post("/bookTable", async (req, res) => {
       const bookTable = req.body;
       const result = await bookTableCollection.insertOne(bookTable);
@@ -216,6 +239,12 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const result = await bookTableCollection.find(query).toArray();
+      res.send(result);
+    });
+    app.delete("/bookTable/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await bookTableCollection.deleteOne(query);
       res.send(result);
     });
     // Payment Related Api
@@ -271,6 +300,17 @@ async function run() {
       }
       const result = await paymentCollection.find(query).toArray();
       res.send(result);
+    });
+
+    app.get("/userHome", async (req, res) => {
+      try {
+        const email = req.query.email;
+        const query = { email: email };
+        const result = await paymentCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Erros From the userOVer view", error);
+      }
     });
 
     app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
@@ -334,6 +374,17 @@ async function run() {
         ])
         .toArray();
 
+      res.send(result);
+    });
+
+    // Reviews Related Apis
+    app.post("/reviews", async (req, res) => {
+      const reviews = req.body;
+      const result = await reviewsCollection.insertOne(reviews);
+      res.send(result);
+    });
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
       res.send(result);
     });
 
