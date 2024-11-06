@@ -101,8 +101,6 @@ async function run() {
 
       const { name, category, price, short_desc, description } = req.body;
 
-     
-
       const updatedDoc = {
         $set: {
           name,
@@ -121,12 +119,12 @@ async function run() {
       }
     });
     // Users related APIs
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken, async (req, res) => {
       const result = await UserCollection.find().toArray();
       res.send(result);
     });
 
-    app.get("/users/:email", verifyToken, async (req, res) => {
+    app.get("/users/:email", verifyToken,  async (req, res) => {
       const email = req.params.email;
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: "Unauthorized access" });
@@ -140,10 +138,9 @@ async function run() {
       res.send({ admin });
     });
 
-    app.patch("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.patch("/users/:id",  async (req, res) => {
       const id = req.params.id;
 
-      // Validate the ID
       if (!ObjectId.isValid(id)) {
         return res.status(400).send({ error: "Invalid user ID format" });
       }
@@ -155,22 +152,12 @@ async function run() {
         },
       };
 
-      try {
-        const result = await UserCollection.updateOne(filter, updatedDoc);
-        if (result.modifiedCount > 0) {
-          return res.send(result);
-        } else {
-          return res
-            .status(404)
-            .send({ message: "User not found or already an admin" });
-        }
-      } catch (error) {
-        console.error("Error updating user:", error);
-        res.status(500).send("Internal Server Error");
-      }
+      const result = await UserCollection.updateOne(filter, updatedDoc);
+
+      return res.send(result);
     });
 
-    app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.delete("/users/:id",  async (req, res) => {
       const id = req.params.id;
 
       if (!ObjectId.isValid(id)) {
@@ -191,7 +178,7 @@ async function run() {
       }
     });
 
-    app.post("/users", async (req, res) => {
+    app.post("/users", verifyToken,verifyAdmin, async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
       const existingUser = await UserCollection.findOne(query);
@@ -202,7 +189,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/carts", async (req, res) => {
+    app.post("/carts",verifyToken, async (req, res) => {
       const cartItem = req.body;
       const result = await cartCollection.insertOne(cartItem);
       res.send(result);
@@ -215,7 +202,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/carts", async (req, res) => {
+    app.get("/carts",verifyToken, async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
       const result = await cartCollection.find(query).toArray();
@@ -224,15 +211,15 @@ async function run() {
 
     // Booking Table related Apis
 
-    app.get("/bookTable", async (req, res) => {
+    app.get("/bookTable",verifyToken, async (req, res) => {
       const result = await bookTableCollection.find().toArray();
       res.send(result);
     });
-    app.delete("/bookTable/:id", async (req, res) => {
-const id = req.params.id;
-const query = {_id : new ObjectId(id)};
-const result = await bookTableCollection.deleteOne(query)
-res.send(result)
+    app.delete("/bookTable/:id",verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await bookTableCollection.deleteOne(query);
+      res.send(result);
     });
 
     app.post("/bookTable", async (req, res) => {
@@ -240,7 +227,7 @@ res.send(result)
       const result = await bookTableCollection.insertOne(bookTable);
       res.send(result);
     });
-    app.get("/bookTable/:email", async (req, res) => {
+    app.get("/bookTable/:email",verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await bookTableCollection.find(query).toArray();
@@ -253,7 +240,8 @@ res.send(result)
       res.send(result);
     });
     // Payment Related Api
-    app.post("/create-payment-intent", async (req, res) => {
+    app.post("/create-payment-intent",
+       async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
       console.log(amount, "Amount insi de the client intent");
@@ -267,7 +255,7 @@ res.send(result)
       });
     });
 
-    app.post("/payments", async (req, res) => {
+    app.post("/payments",verifyToken, async (req, res) => {
       try {
         const payment = req.body;
 
@@ -307,7 +295,7 @@ res.send(result)
       res.send(result);
     });
 
-    app.get("/userHome", async (req, res) => {
+    app.get("/userHome",verifyToken, async (req, res) => {
       try {
         const email = req.query.email;
         const query = { email: email };
@@ -393,8 +381,8 @@ res.send(result)
       res.send(result);
     });
 
-    await client.db("admin").command({ ping: 1 });
-    console.log("Connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Connected to MongoDB!");
   } catch (error) {
     console.error("Database connection error:", error);
   }
