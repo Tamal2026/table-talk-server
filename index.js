@@ -28,7 +28,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const UserCollection = client.db("tableTalk").collection("users");
     const menuCollection = client.db("tableTalk").collection("menu");
     const cartCollection = client.db("tableTalk").collection("carts");
@@ -101,7 +101,7 @@ async function run() {
 
       const { name, category, price, short_desc, description } = req.body;
 
-      const img = req.file ? req.file.path : null;
+     
 
       const updatedDoc = {
         $set: {
@@ -228,7 +228,12 @@ async function run() {
       const result = await bookTableCollection.find().toArray();
       res.send(result);
     });
-    app.delete("/bookTable/:id", async (req, res) => {});
+    app.delete("/bookTable/:id", async (req, res) => {
+const id = req.params.id;
+const query = {_id : new ObjectId(id)};
+const result = await bookTableCollection.deleteOne(query)
+res.send(result)
+    });
 
     app.post("/bookTable", async (req, res) => {
       const bookTable = req.body;
