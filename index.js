@@ -395,7 +395,7 @@ app.get("/", (req, res) => {
 });
 
 // Initialize WebSocket Server
-const server = app.listen(port, () => {
+app.listen(port, () => {
   console.log(`Table Talk is running on port ${port}`);
 });
 
