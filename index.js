@@ -396,7 +396,7 @@ app.get("/", (req, res) => {
 
 // Initialize WebSocket Server
 app.listen(port, () => {
-  console.log(`Table Talk is running on port ${port}`);
+  console.log(`Table Talk Backend is running on port ${port}`);
 });
 
 const wss = new WebSocket.Server({ server, path: "/ws" });
