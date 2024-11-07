@@ -215,7 +215,7 @@ async function run() {
       const result = await bookTableCollection.find().toArray();
       res.send(result);
     });
-    app.delete("/bookTable/:id",verifyToken, async (req, res) => {
+    app.delete("/bookTable/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await bookTableCollection.deleteOne(query);
@@ -398,25 +398,6 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`Table Talk Backend is running on port ${port}`);
 });
-
-const wss = new WebSocket.Server({ server, path: "/ws" });
-
+module.exports = app;
 // WebSocket connection handling
-wss.on("connection", (ws) => {
-  console.log("New client connected");
 
-  ws.on("message", (message) => {
-    console.log("Received:", message);
-
-    // Broadcast message to all clients
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(`Echo: ${message}`);
-      }
-    });
-  });
-
-  ws.on("close", () => {
-    console.log("Client disconnected");
-  });
-});
